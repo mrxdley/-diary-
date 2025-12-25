@@ -8,7 +8,10 @@ function App() {
   const [newEntry, setNewEntry] = useState('');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('normal'); // 'normal' or 'greentext'
+
   const [threads, setThreads] = useState([]);
+  const [isAscending, setIsAscending] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadPosts = async () => {
     try {
@@ -53,26 +56,17 @@ function App() {
     const options = formData.get('options')?.trim();
     console.log(options)
 
-    if (options) {
-      
-    }
-    else {
-      if (!comment) {
-        alert('Write something, anon.');
-        return;
-      }
-    }
-
-
-
     const payload = {
       content: comment,
       options: options,
       name: formData.get('name')?.trim() || 'Anonymous',
-      sub: formData.get('sub')?.trim() || ''
+      sub: formData.get('sub')?.trim() || '[subject]'
     };
 
-    if (!payload.content) return;
+    if (!payload.content && !payload.options) {
+      alert('Write something, anon.');
+      return;
+    }
 
     // Optional: disable button or show loading
     const submitBtn = e.target.querySelector('input[type="submit"]');
@@ -97,6 +91,9 @@ function App() {
       // Success — refresh posts
       await loadPosts();
       e.target.reset();
+
+      const postedName = formData.get('name')?.trim() || 'Anonymous';
+      localStorage.setItem('diaryName', postedName);
 
     } catch (err) {
       console.error('Post failed:', err);
@@ -123,6 +120,16 @@ function App() {
     });
   };
 
+  const filteredThreads = threads.filter(thread => {
+    if (!searchTerm) return true;
+    if (!thread?.op) return false;
+    const lower = searchTerm.toLowerCase();
+    return (
+      (thread.op.sub || '').toLowerCase().includes(lower) ||
+      (thread.op.comment || '').toLowerCase().includes(lower)
+    );
+  });
+
   return (
     <div className="App">
       <div className="board-header">
@@ -142,7 +149,7 @@ function App() {
                   name="name" 
                   tabIndex={1} 
                   placeholder="Anonymous" 
-                  defaultValue="Anonymous" 
+                  defaultValue={localStorage.getItem('diaryName') || 'Anonymous'}
                 />
               </td>
             </tr>
@@ -160,7 +167,7 @@ function App() {
             <tr>
               <td>Subject</td>
               <td>
-                <input type="text" name="sub" tabIndex={3} autoComplete="off"/>
+                <input type="text" name="sub" tabIndex={3} autoComplete="off" placeholder="[subject]"/>
                 <input type="submit" value="Post" tabIndex={10} />
               </td>
             </tr>
@@ -193,7 +200,7 @@ function App() {
       {/* search+archive */}
       <div style={{ 
         textAlign: 'left', 
-        margin: '20px 0', 
+        margin: '20px 0 40px 0', 
         padding: '2px 0', 
         borderTop: '1px solid #ccc', 
         borderBottom: '1px solid #ccc' 
@@ -201,21 +208,34 @@ function App() {
         <input 
           type="text" 
           placeholder="Search..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           style={{ 
-            padding: '2px', 
-            width: '200px', 
+            padding: '6px', 
+            width: '300px', 
             border: '1px solid #999' 
           }} 
         />
         <a href="#" style={{ marginLeft: '10px', color: '#0000EE' }}>[Archive]</a>
+        <a 
+          href="#" 
+          onClick={(e) => {
+            e.preventDefault();
+            setThreads(prev => [...prev].reverse());
+            setIsAscending(prev => !prev);  // toggle the state
+          }}
+          style={{ marginLeft: '10px', color: '#800000', cursor: 'pointer' }}
+        >
+          [{isAscending ? 'Descending' : 'Ascending'}]
+        </a>
       </div>
 
-      {threads.length === 0 ? (
+      {filteredThreads.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#888', margin: '100px 0' }}>
-          No journal entries yet. Be the first to post, anon.
+          {searchTerm ? `No results for "${searchTerm}"` : 'No journal entries yet. Be the first to post, anon.'}
         </div>
       ) : (
-        threads.map((thread) => (
+        filteredThreads.map((thread) => (
           <div key={thread.id} className="thread" style={{ marginBottom: '40px' }}>
             <div className="post op">
               <div className="post-info">
@@ -232,12 +252,14 @@ function App() {
                 }}
               />
             </div>
-
+          
             {/* <hr style={{ border: 'none', borderTop: '1px solid #ccc', clear: 'both' }} /> */}
           </div>
         ))
       )}
       </div>
+
+      
   );
 }
 

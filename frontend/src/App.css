@@ -12,6 +12,9 @@ body {
   background-color: #feffed;
   color: #000;
 }
+body {
+  /* zoom: 150%; */
+}
 
 .App {
   min-height: 100vh;
@@ -45,7 +48,7 @@ body {
 .post-form {
   display: flex;
   justify-content: center;
-  margin: 30px 0;
+  margin: 20px 0;
 }
 
 .post-form table {
@@ -134,17 +137,6 @@ body {
   word-wrap: break-word;
 }
 
-.post .file {
-  float: left;
-  margin: 0 20px 10px 0;
-}
-
-.post .file-thumb {
-  max-width: 200px;
-  max-height: 200px;
-  border: 1px solid #999;
-}
-
 .post .post-info {
   display: block;
   margin-bottom: 4px;
@@ -165,6 +157,8 @@ body {
 .post .post-no {
   color: #800000;
   font-size: 10pt;
+  cursor: default;           /* normal arrow, not hand */
+  pointer-events: none;
 }
 
 .post .post-no {
@@ -214,10 +208,13 @@ body {
   background-color: #efdfd6;          /* that warm beige/orange */
   border: 1px solid #d9bfb7;
   padding: 10px 15px;
-  margin: 10px 50px;
-  max-width: 900px;
+  margin: -20px 50px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);  /* very slight shadow */
   position: relative;                 /* for the >> arrow */
+  display: table;          /* NEW: makes width hug content */
+  max-width: none;
+  text-align: left;
+  box-sizing: border-box;
 }
 
 /* The >> arrow to the left of the post header */
@@ -289,9 +286,9 @@ body {
   display: inline;
 }
 
-/* Comment general style */
 .comment {
-  clear: both;
+  white-space: pre-wrap;          /* preserves line breaks */
+  word-wrap: break-word;          /* breaks very long words */
+  display: block;
   margin-top: 10px;
-  line-height: 1.4;
 }

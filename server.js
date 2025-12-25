@@ -30,6 +30,44 @@ const db = new sqlite3.Database('./diary.db', (err) => {
   }
 });
 
+// ---- memory system----
+// First, modify getMemoriesForContext to return a Promise instead of using callbacks
+function getMemoriesForContext() {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT memory_text FROM memories 
+       ORDER BY created_at DESC 
+       LIMIT 6`,
+      [],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          const memories = rows.map(row => row.memory_text);
+          resolve(memories);
+        }
+      }
+    );
+  });
+}
+
+function extractMemoriesFromResponse(response) {
+  const memories = [];
+  const memoryRegex = /\[memory:\s*(.+?)\]/gi;
+  let match;
+  
+  while ((match = memoryRegex.exec(response)) !== null) {
+    const memory = match[1].trim();
+    if (memory.length > 0 && memory.length < 100) {
+      memories.push(memory);
+    }
+  }
+  
+  return memories;
+}
+
+
+
 // API Routes
 
 // Get all entries
@@ -54,57 +92,119 @@ app.get('/api/entries/:id', (req, res) => {
   });
 });
 
+// Get all memories
+app.get('/api/memories', (req, res) => {
+  db.all(`
+    SELECT m.*, e.content as source_content 
+    FROM memories m
+    LEFT JOIN entries e ON m.entry_id = e.id
+    ORDER BY m.created_at DESC
+  `, [], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ memories: rows });
+  });
+});
+
 app.post('/api/entries', async (req, res) => {
   const { content, options, name, sub } = req.body;
 
   console.log('Received body:', req.body);  // log entire payload
 
-  if (req.body.options.trim().toLowerCase() === 'clear') {
-    console.log('Clear command triggered!');
-    db.run('DELETE FROM entries', (err) => {
+  if (req.body.options?.trim().toLowerCase() === 'clear') {
+  console.log('Clear command triggered!');
+
+  db.serialize(() => {
+    db.run('DELETE FROM entries', function(err) {
       if (err) {
-        console.error('Clear failed:', err);
-        return res.status(500).json({ error: 'Clear failed' });
+        console.error('Delete failed:', err); //deletes entries
       }
-      console.log('Database cleared by admin command');
-      res.json({ message: 'All entries deleted. Database cleared.' });
     });
-    return;  // stop normal posting
-  }
+    db.run('DELETE FROM sqlite_sequence WHERE name="entries"', function(err) {
+      if (err) {
+        console.error('Reset sequence failed:', err); //deletes and resets
+      } else {
+        console.log('ID counter reset to 1');
+      }
+    });
+    db.run('DELETE FROM memories', function(err) {
+        if (err) {
+          console.error('Delete memories failed:', err); //deletes memories
+        }
+      });
+    db.run('DELETE FROM sqlite_sequence WHERE name="memories"', function(err) {
+        if (err) {
+          console.error('Reset sequence failed:', err);//deletes them too
+        }
+      });
+  });
+
+  db.run('DELETE FROM entries', function(err) {
+    if (err) {
+      console.error('Clear failed:', err);
+      return res.status(500).json({ error: 'Clear failed' });
+    }
+    console.log('Database cleared by admin command');
+    res.json({ message: 'All entries deleted. Database cleared.' });
+  });
+
+  return;
+}
   
   if (!content || content.trim() === '') {
     return res.status(400).json({ error: 'Content is required' });
-  }
-
-const prompt = `Turn this personal journal entry into a classic 4chan-style greentext story. 
-    Keep it short, ironic, self-roasting, use > at the start of every line, end with mfw/tfw if it fits.
-    Keep the output length directly proportional to your input length.
-    occasionaly use the format whatthefuck.fileextension to express an emotion
-
-    for example:
-    > be me
-    > wake up on xmas day
-    > mariahCarey24/7.mp3
-    > immediately kill myself
-    > at least the food is good
-    > mfw christmas dinner stopped me from ropemaxxing
-
-    Make it funny and absurd even if the day was bad. Journal entry: ${content.trim()}`;
+  } 
 
   try {
-    const llmResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const previousMemories = await getMemoriesForContext();
+    let memoryContext = '';
+    if (previousMemories.length > 0) {
+      memoryContext = '\n\nUser\'s previous key memories:\n';
+      previousMemories.forEach((memory, index) => {
+        memoryContext += `${index + 1}. ${memory}\n`;
+      });
+    }
+
+      const prompt = `You are anon's diary assistant. Turn journal entries into 4chan-style greentext stories.
+
+   ${memoryContext}
+
+  INSTRUCTIONS:
+  1. Create a greentext story from the journal entry
+  2. Use > at the start of every line
+  3. Make it funny, ironic, self-deprecating
+  4. End with "mfw" or "tfw" if appropriate
+  5. Occasionally use format like: emotion.fileextension
+  6. After the greentext, on a new line, write 1 or 2 memories about the user's patterns/habits/emotions BUT ONLY IF MAJOR OR IMPORTANT
+  7. Format each memory as: [memory: short memory text]
+
+  Example:
+  > be me
+  > try to wake up early
+  > alarmClockScreaming.mp3
+  > hit snooze 5 times
+  > mfw it's already noon
+  
+  [memory: always hits snooze multiple times]
+  [memory: struggles with morning routines]
+
+  Now process this journal entry: ${content.trim()}`;
+
+    const llmResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         'HTTP-Referer': 'http://localhost:3001',  // or your domain
         'X-Title': '/diary/'
       },
       body: JSON.stringify({
-        model: "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.9,
-        max_tokens: 600
+        temperature: 0.7,
+        max_tokens: 1800
       })
     });
 
@@ -115,7 +215,63 @@ const prompt = `Turn this personal journal entry into a classic 4chan-style gree
     }
 
     const data = await llmResponse.json();
-    greentext = data.choices[0].message.content.trim();
+    const fullResponse = data.choices[0].message.content.trim();
+    
+    const memoryStart = fullResponse.search(/\[memory:/i);
+    let greentext, extractedMemories = [];
+
+    if (memoryStart !== -1) {
+        greentext = fullResponse.substring(0, memoryStart).trim();
+        extractedMemories = extractMemoriesFromResponse(fullResponse);
+      } else {
+        greentext = fullResponse;
+      }
+    
+    // Save the entry
+    db.run(
+      'INSERT INTO entries (content, greentext, name, sub) VALUES (?, ?, ?, ?)',
+      [content.trim(), greentext, req.body.name || 'Anonymous', req.body.sub || ''],
+      function(err) {
+        if (err) {
+          console.error('DB error:', err);
+          return res.status(500).json({ error: 'Failed to save entry' });
+        }
+        
+        const entryId = this.lastID;
+        
+        if (extractedMemories.length > 0) {
+          console.log('Saving memories:', extractedMemories);
+          
+          extractedMemories.forEach(memory => {
+            if (memory && memory.trim().length > 0) {
+              db.run(
+                'INSERT INTO memories (memory_text, entry_id) VALUES (?, ?)',
+                [memory.trim(), entryId],
+                (err) => {
+                  if (err) {
+                    console.error('FAILED to save memory:', err);
+                  } else {
+                    console.log('✓ Saved memory:', memory.trim());
+                  }
+                }
+              );
+            }
+          });
+        } else {
+          console.log('No memories extracted from this entry');
+        }
+        
+        res.json({
+          id: entryId,
+          content: content.trim(),
+          greentext,
+          memories: extractedMemories,
+          name: req.body.name || 'Anonymous',
+          sub: req.body.sub || '',
+          created_at: new Date().toISOString()
+        });
+      }
+    );
 
   } catch (err) {
     console.error('LLM call failed, using fallback:', err);
@@ -124,25 +280,6 @@ const prompt = `Turn this personal journal entry into a classic 4chan-style gree
       .map(line => `>${line.trim() || 'be me'}`)
       .join('\n');
   }
-
-  db.run(
-    'INSERT INTO entries (content, greentext, name, sub) VALUES (?, ?, ?, ?)',
-    [content.trim(), greentext, req.body.name || 'Anonymous', req.body.sub || ''],
-    function(err) {
-      if (err) {
-        console.error('DB error:', err);
-        return res.status(500).json({ error: 'Failed to save' });
-      }
-      res.json({
-        id: this.lastID,
-        content: content.trim(),
-        greentext,
-        name: req.body.name || 'Anonymous',
-        sub: req.body.sub || '',
-        created_at: new Date().toISOString()
-      });
-    }
-  );
 });
 
 // Delete entry
