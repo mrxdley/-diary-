@@ -1,0 +1,297 @@
+/* App.css - 4chan inspired styling */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: arial, helvetica, sans-serif;
+  font-size: 10pt;
+  background-color: #feffed;
+  color: #000;
+}
+
+.App {
+  min-height: 100vh;
+}
+
+/* Header */
+.board-header {
+  background: linear-gradient(to bottom, #ffd6af 0%, #feffed 100%);
+  padding: 25px;
+  text-align: center;
+}
+
+.board-header h1 {
+  font-size: 24pt;
+  color: #af0a0f;
+  margin-bottom: -20px;
+}
+
+.subtitle {
+  font-size: 9pt;
+  color: #000;
+}
+
+/* Container */
+.container {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 0 15px;
+}
+
+.post-form {
+  display: flex;
+  justify-content: center;
+  margin: 30px 0;
+}
+
+.post-form table {
+  border-collapse: separate;
+  border-spacing: 2px;  /* this creates the 2px gap between all cells */
+  background-color: transparent;
+}
+
+.post-form td {
+  padding: 0;  /* remove default padding so border hugs content */
+}
+
+.post-form td:first-child {
+  /* Label cells: Name, Subject, Comment, etc. */
+  background-color: #eeaa88;  /* classic 4chan */
+  border: 1px solid #000;
+  color: #a54242;
+  text-align: right;
+  font-weight: bold;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.post-form td:last-child {
+  /* Input cells */
+  background-color: #fff;  /* page background, or #fff if you prefer white */
+  border: 1px solid #000;
+  padding: 4px;
+}
+
+.post-form input[type="text"],
+.post-form textarea {
+  border: none;              /* remove default browser border */
+  background: transparent;   /* make it blend with the cell */
+  width: 100%;
+  box-sizing: border-box;
+  font-family: arial, sans-serif;
+  resize: vertical;          /* optional: allow vertical resize on textarea */
+}
+
+.post-form input[type="submit"] {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border: 1px solid #000;
+  background: #ea8;
+  font-weight: bold;
+}
+
+/* Add this to fix the Subject row specifically */
+.post-form tr:nth-child(3) td:last-child {
+  /* Subject row input cell */
+  display: flex;
+  align-items: center;
+  gap: 10px;  /* space between subject input and Post button */
+}
+
+.post-form tr:nth-child(3) input[type="text"] {
+  /* Subject input */
+  flex: 1;  /* takes up all available space */
+}
+
+.post-form tr:nth-child(3) input[type="submit"] {
+  /* Post button */
+  flex-shrink: 0;  /* doesn't shrink */
+  white-space: nowrap;
+}
+.post-form tr.rules td[colSpan="2"] {
+  border: 1px solid #000;
+}
+
+.post-form tr.rules ul.rules-list {
+  margin: 0;          /* remove default browser margin */
+  padding-left: 20px; /* standard bullet indent – keeps bullets inside the box */
+}
+
+.post-form tr.rules li {
+  margin: 4px 0;
+}
+
+
+/* POSTS */
+/* Add these to your existing App.css for perfect 4chan post styling */
+
+.post {
+  margin-bottom: 8px;
+  word-wrap: break-word;
+}
+
+.post .file {
+  float: left;
+  margin: 0 20px 10px 0;
+}
+
+.post .file-thumb {
+  max-width: 200px;
+  max-height: 200px;
+  border: 1px solid #999;
+}
+
+.post .post-info {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.post .name {
+  color: #117743;
+  font-weight: bold;
+}
+
+.post .subject {
+  color: #800000;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.post .date,
+.post .post-no {
+  color: #800000;
+  font-size: 10pt;
+}
+
+.post .post-no {
+  text-decoration: none;
+  margin-left: 8px;
+}
+
+.post .backlink {
+  margin-left: 10px;
+  font-size: 9pt;
+  color: #800000;
+}
+
+.post .quotelink {
+  color: #d00;
+  text-decoration: none;
+}
+
+.post .greentext {
+  color: #789922;
+}
+
+.post .comment {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.3;
+  white-space: pre-wrap;
+}
+
+.op .comment {
+  margin-left: 0;
+}
+
+.reply .comment {
+  margin-left: 20px;
+}
+
+.board {
+  max-width: 900px;
+  margin: 0 auto;          /* keeps the whole board centered on the page */
+  padding: 10px;
+  text-align: left;        /* everything inside left-aligned */
+}
+
+/* Each post (thread) in a nice boxed container */
+.thread {
+  background-color: #efdfd6;          /* that warm beige/orange */
+  border: 1px solid #d9bfb7;
+  padding: 10px 15px;
+  margin: 10px 50px;
+  max-width: 900px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);  /* very slight shadow */
+  position: relative;                 /* for the >> arrow */
+}
+
+/* The >> arrow to the left of the post header */
+.thread::before {
+  content: ">>";
+  position: absolute;
+  left: -30px;                        /* adjust if needed */
+  top: 5px;                          /* vertically aligns with name/subject line */
+  font-weight: bold;
+  color: #800000;
+  font-size: 16px;
+}
+
+/* Post header info – better spacing */
+.post-info {
+  display: block;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.post-form input[type="text"]:focus,
+.post-form textarea:focus {
+  outline: none;  /* removes ugly focus ring */
+  /* box-shadow: 0 0 0 2px rgba(128, 0, 0, 0.2);  subtle red glow instead */
+}
+
+.post-form input[type="submit"] {
+  padding: 4px 12px;
+  background: #ea8;
+  border: 1px solid #800;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;  /* smooth animation */
+}
+
+.post-form input[type="submit"]:hover {
+  background: #f0c0a0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.post-form input[type="submit"]:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* Space between subject and name */
+.subject {
+  margin-right: 8px;                  /* a) space after subject */
+  margin-left: 0;
+}
+
+/* Order and spacing in header line */
+.name {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+.date {
+  margin-right: 8px;
+}
+
+.post-no {
+  margin-left: 0;
+}
+
+/* Make greentext pop a bit more inside the box */
+.greentext {
+  color: #789922;
+  display: inline;
+}
+
+/* Comment general style */
+.comment {
+  clear: both;
+  margin-top: 10px;
+  line-height: 1.4;
+}
