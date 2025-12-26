@@ -174,40 +174,46 @@ app.post('/api/entries', async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch memories' });
       }
 
-      if (rows.length === 0) {
-        const emptyGreentext = '>be me\n>no memories yet\n>mfw empty mind';
-        return res.json({
-          id: Date.now(),  // fake ID so frontend treats it like a real post
-          greentext: emptyGreentext,
-          name: 'Anonymous',
-          sub: 'Memory Dump',
-          created_at: new Date().toISOString()
-        });
-      }
-
       let lines = ['>be me', '>memory dump activated', '>all key memories from the diary:'];
 
-      rows.forEach(row => {
-        const date = new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-        const memory = row.memory_text || row.key_memory || row.memory || 'unknown memory';
-        lines.push(`>${date}: ${memory}`);
-      });
-
-      lines.push('>mfw reliving the entire arc');
-      lines.push('>end of memory dump');
+      if (rows.length === 0) {
+        lines = ['>be me', '>no memories yet', '>mfw empty mind'];
+      } else {
+        rows.forEach(row => {
+          const date = new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+          const memory = row.memory_text || row.key_memory || row.memory || 'unknown memory';
+          lines.push(`>${date}: ${memory}`);
+        });
+        lines.push('>mfw reliving the entire arc');
+        lines.push('>end of memory dump');
+      }
 
       const greentext = lines.join('\n');
 
-      res.json({
-        id: Date.now(),  // fake but unique ID
-        greentext: greentext,
-        name: 'Anonymous',
-        sub: 'Memory Dump',
-        created_at: new Date().toISOString()
-      });
+      // Insert as a normal entry so frontend sees it after loadPosts()
+      db.run(
+        'INSERT INTO entries (content, greentext, name, sub, created_at) VALUES (?, ?, ?, ?, ?)',
+        ['Memory dump command', greentext, 'Anonymous', 'Memory Dump', new Date().toISOString()],
+        function(insertErr) {
+          if (insertErr) {
+            console.error('Failed to insert memory dump:', insertErr);
+            return res.status(500).json({ error: 'Failed to save dump' });
+          }
+
+          // Respond with the new fake entry format
+          res.json({
+            id: this.lastID,
+            content: 'Memory dump',
+            greentext: greentext,
+            name: 'Anonymous',
+            sub: 'Memory Dump',
+            created_at: new Date().toISOString()
+          });
+        }
+      );
     });
 
-  return; // prevent normal insert
+    return;
   }
   
   if (!content || content.trim() === '') {
