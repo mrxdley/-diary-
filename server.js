@@ -4,6 +4,7 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 3001;
@@ -29,6 +30,7 @@ const db = new sqlite3.Database('./diary.db', (err) => {
     `);
   }
 });
+
 
 // ---- memory system----
 // First, modify getMemoriesForContext to return a Promise instead of using callbacks
@@ -72,7 +74,9 @@ function extractMemoriesFromResponse(response) {
 
 // Get all entries
 app.get('/api/entries', (req, res) => {
-  db.all('SELECT * FROM entries ORDER BY created_at DESC', [], (err, rows) => {
+  const deviceId = req.headers['x-device-id'] || req.query.device_id || 'default';
+
+  db.all('SELECT * FROM entries WHERE device_id = ? ORDER BY created_at DESC', [deviceId], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
@@ -110,12 +114,19 @@ app.get('/api/memories', (req, res) => {
 
 app.post('/api/entries', async (req, res) => {
   const { content, options, name, sub } = req.body;
+  // Get or create device ID from cookie or header
+  let deviceId = req.headers['x-device-id'] || 'default';
+  // If no header, generate one (but better from frontend — see below)
+  if (deviceId === 'default') {
+    deviceId = crypto.randomUUID();  // fallback
+  }
 
   console.log('Received body:', req.body);  // log entire payload
 
   if (req.body.options?.trim().toLowerCase() === 'clear') {
   console.log('Clear command triggered!');
 
+  //clearing
   db.serialize(() => {
     db.run('DELETE FROM entries', function(err) {
       if (err) {
@@ -177,8 +188,9 @@ app.post('/api/entries', async (req, res) => {
   3. Make it funny, ironic, self-deprecating
   4. End with "mfw" or "tfw" if appropriate
   5. Occasionally use format like: emotion.fileextension
-  6. After the greentext, on a new line, write 1 or 2 memories about the user's patterns/habits/emotions BUT ONLY IF MAJOR OR IMPORTANT
+  6. After the greentext, on a new line, write 1 short summary about the user's patterns/habits/emotions but only IF they are MAJOR OR IMPORTANT
   7. Format each memory as: [memory: short memory text]
+  8. every memory must have a unique topic
 
   Example:
   > be me
@@ -203,7 +215,7 @@ app.post('/api/entries', async (req, res) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
+        temperature: 0.8,
         max_tokens: 1800
       })
     });
@@ -229,8 +241,8 @@ app.post('/api/entries', async (req, res) => {
     
     // Save the entry
     db.run(
-      'INSERT INTO entries (content, greentext, name, sub) VALUES (?, ?, ?, ?)',
-      [content.trim(), greentext, req.body.name || 'Anonymous', req.body.sub || ''],
+      'INSERT INTO entries (content, greentext, name, sub, device_id) VALUES (?, ?, ?, ?,?)',
+      [content.trim(), greentext, req.body.name || 'Anonymous', req.body.sub || '', deviceId],
       function(err) {
         if (err) {
           console.error('DB error:', err);
@@ -293,9 +305,9 @@ app.delete('/api/entries/:id', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`/diary/ server running on http://localhost:${PORT}`);
-});
+
+
+
 
 // Graceful shutdown
 process.on('SIGINT', () => {
@@ -306,4 +318,16 @@ process.on('SIGINT', () => {
     console.log('Database connection closed.');
     process.exit(0);
   });
+});
+
+// Serve React app
+app.use(express.static(path.join(__dirname, 'build')));
+
+// Handle client-side routing — send index.html for any non-API route
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`/diary/ server running on http://localhost:${PORT}`);
 });

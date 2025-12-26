@@ -13,9 +13,21 @@ function App() {
   const [isAscending, setIsAscending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const API_BASE = window.location.origin;
+
+  const getDeviceId = () => {
+    let id = localStorage.getItem('diaryDeviceId');
+    if (!id) {
+      id = 'device-' + Math.random().toString(36).substr(2, 9) + Date.now();
+      localStorage.setItem('diaryDeviceId', id);
+    }
+    return id;
+  };
+  const DEVICE_ID = getDeviceId();
+
   const loadPosts = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/entries');
+      const response = await fetch(`${API_BASE}/api/entries?device_id=${DEVICE_ID}`);
       if (!response.ok) throw new Error('API down');
 
       const data = await response.json();
@@ -60,7 +72,8 @@ function App() {
       content: comment,
       options: options,
       name: formData.get('name')?.trim() || 'Anonymous',
-      sub: formData.get('sub')?.trim() || '[subject]'
+      sub: formData.get('sub')?.trim() || '[subject]',
+      device_id: DEVICE_ID
     };
 
     if (!payload.content && !payload.options) {
@@ -75,10 +88,11 @@ function App() {
     submitBtn.value = 'Posting...';
 
     try {
-      const response = await fetch('http://localhost:3001/api/entries', {
+      const response = await fetch('/api/entries', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Device-ID': DEVICE_ID  // optional backup
         },
         body: JSON.stringify(payload)
       });
@@ -188,8 +202,8 @@ function App() {
               <td colSpan={2}>
                 <ul className="rules-list">
                   <li>All posts are anonymous.</li>
-                  <li>Use &gt; for greentext lines.</li>
-                  <li>Your diary is private – hosted on your Pi.</li>
+                  <li>This site is hosted on a RPi in my bedroom.</li>
+                  <li>Your diary is private. ish.</li>
                 </ul>
               </td>
             </tr>
