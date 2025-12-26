@@ -108,6 +108,8 @@ function App() {
 
       const postedName = formData.get('name')?.trim() || 'Anonymous';
       localStorage.setItem('diaryName', postedName);
+      const postedSubject = formData.get("subject")?.trim() || "";
+      localStorage.setItem("savedSubject", postedSubject)
 
     } catch (err) {
       console.error('Post failed:', err);
@@ -181,7 +183,7 @@ function App() {
             <tr>
               <td>Subject</td>
               <td>
-                <input type="text" name="sub" tabIndex={3} autoComplete="off" placeholder="[subject]"/>
+                <input type="text" name="sub" tabIndex={3} autoComplete="off" placeholder="[subject]" defaultValue={localStorage.getItem('savedSubject') || ''}/>
                 <input type="submit" value="Post" tabIndex={10} />
               </td>
             </tr>
@@ -230,7 +232,7 @@ function App() {
             border: '1px solid #999' 
           }} 
         />
-        <a href="#" style={{ marginLeft: '10px', color: '#0000EE' }}>[Archive]</a>
+        {/* <a href="#" style={{ marginLeft: '10px', color: '#0000EE' }}>[Archive]</a> */}
         <a 
           href="#" 
           onClick={(e) => {
