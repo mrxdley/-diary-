@@ -5,9 +5,30 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = 3001;
+
+// Check for command-line flag --rate-limit or --no-rate-limit
+const args = process.argv.slice(2);
+const enableRateLimit = args.includes('--rate-limit') && !args.includes('--no-rate-limit');
+console.log(`Rate limiting ${enableRateLimit ? 'ENABLED' : 'DISABLED'}`);
+
+if (enableRateLimit) {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,     // 15 minutes
+    max: 10,                     // limit each IP to 100 requests per window
+    standardHeaders: true,        // Return rate limit info in headers
+    legacyHeaders: false,         // Disable X-RateLimit headers
+    message: 'Too many requests from this IP, please try again later.',
+    // Optional: skip for your IP (uncomment and set your home IP)
+    // skip: (req) => req.ip === 'YOUR_HOME_IP_HERE'
+  });
+
+  // Apply to API routes only
+  app.use('/api/', limiter);
+}
 
 // Middleware
 app.use(cors());
@@ -166,54 +187,40 @@ app.post('/api/entries', async (req, res) => {
   }
 
   if (req.body.options?.trim().toLowerCase() === "memory") {
-    console.log('Memory dump requested');
+    console.log('Memory recall requested');
 
     db.all('SELECT * FROM memories ORDER BY created_at DESC', [], (err, rows) => {
       if (err) {
-        console.error('Memory dump failed:', err);
         return res.status(500).json({ error: 'Failed to fetch memories' });
       }
 
-      let lines = ['>be me', '>memory dump activated', '>all key memories from the diary:'];
+      let lines = ['>be me', '>memory recall activated', '>my memories so far:'];
 
       if (rows.length === 0) {
-        lines = ['>be me', '>no memories yet', '>mfw empty mind'];
+        lines.push('>no memories yet');
+        lines.push('>mfw blank slate');
       } else {
         rows.forEach(row => {
-          const date = new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-          const memory = row.memory_text || row.key_memory || row.memory || 'unknown memory';
+          const date = new Date(row.created_at).toLocaleDateString();
+          const memory = row.memory_text || row.text || 'unknown memory';
           lines.push(`>${date}: ${memory}`);
         });
-        lines.push('>mfw reliving the entire arc');
-        lines.push('>end of memory dump');
       }
 
+      lines.push('>mfw this is who I am now');
       const greentext = lines.join('\n');
 
-      // Insert as a normal entry so frontend sees it after loadPosts()
-      db.run(
-        'INSERT INTO entries (content, greentext, name, sub, created_at) VALUES (?, ?, ?, ?, ?)',
-        ['Memory dump command', greentext, 'Anonymous', 'Memory Dump', new Date().toISOString()],
-        function(insertErr) {
-          if (insertErr) {
-            console.error('Failed to insert memory dump:', insertErr);
-            return res.status(500).json({ error: 'Failed to save dump' });
-          }
-
-          // Respond with the new fake entry format
-          res.json({
-            id: this.lastID,
-            content: 'Memory dump',
-            greentext: greentext,
-            name: 'Anonymous',
-            sub: 'Memory Dump',
-            created_at: new Date().toISOString()
-          });
-        }
-      );
+      // Send back exactly like a normal post response
+      res.json({
+        id: Date.now(),  // fake ID so frontend treats it like real post
+        greentext: greentext,
+        name: 'Anonymous',
+        sub: 'My Memories',
+        created_at: new Date().toISOString()
+      });
     });
 
-    return;
+    return; // stop normal flow
   }
   
   if (!content || content.trim() === '') {
@@ -239,6 +246,7 @@ app.post('/api/entries', async (req, res) => {
   2. Use > at the start of every line
   3. Make it funny, ironic, self-deprecating
   4. End with "mfw" or "tfw" if appropriate
+  4. If the journal entry is longer than 4 or 5 lines, write an appropriate comment/observation after the greentext from the perspective of the user, without the >
   5. Occasionally use format like: emotion.fileextension
   6. After the greentext, on a new line, write 1 short summary about the user's patterns/habits/emotions but only IF they are MAJOR OR IMPORTANT
   7. Format each memory as: [memory: short memory text]
@@ -250,9 +258,10 @@ app.post('/api/entries', async (req, res) => {
   > alarmClockScreaming.mp3
   > hit snooze 5 times
   > mfw it's already noon
+
+  Am I really going to live like this forever?
   
   [memory: always hits snooze multiple times]
-  [memory: struggles with morning routines]
 
   Now process this journal entry: ${content.trim()}`;
 
@@ -267,8 +276,8 @@ app.post('/api/entries', async (req, res) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.8,
-        max_tokens: 1800
+        temperature: 0.85,
+        max_tokens: 800
       })
     });
 
@@ -356,9 +365,6 @@ app.delete('/api/entries/:id', (req, res) => {
     res.json({ message: 'Entry deleted', changes: this.changes });
   });
 });
-
-
-
 
 
 // Graceful shutdown

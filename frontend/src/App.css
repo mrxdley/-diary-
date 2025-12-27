@@ -10,10 +10,7 @@ body {
   font-family: arial, helvetica, sans-serif;
   font-size: 10pt;
   background-color: #feffed;
-  color: #000;
-}
-body {
-  /* zoom: 150%; */
+  color: #651a05;
 }
 
 .App {
@@ -186,6 +183,7 @@ body {
   margin-top: 4px;
   line-height: 1.3;
   white-space: pre-wrap;
+  color: #651a05;
 }
 
 .op .comment {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { raw } from 'express';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -15,6 +16,25 @@ function App() {
 
   const API_BASE = window.location.origin;
 
+  function sanitizeInput(text) {
+    return text
+      // 1. Replace emojis with nothing (removes most common emojis)
+      .replace(/[\u{1F600}-\u{1F64F}]/gu, '')  // emoticons
+      .replace(/[\u{1F300}-\u{1F5FF}]/gu, '')  // symbols & pictographs
+      .replace(/[\u{1F680}-\u{1F6FF}]/gu, '')  // transport & map
+      .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '')  // flags
+      .replace(/[\u{2600}-\u{26FF}]/gu, '')    // misc symbols
+      .replace(/[\u{2700}-\u{27BF}]/gu, '')    // dingbats
+      .replace(/[\u{1F900}-\u{1F9FF}]/gu, '')  // supplemental symbols
+      .replace(/[\u{1F000}-\u{1F02F}]/gu, '')  // mahjong, cards, etc.
+
+      // 2. Split into lines, trim each line, remove completely empty lines
+      .split('\n')
+      .map(line => line.trim())           // trim spaces from start/end of line
+      .filter(line => line.length > 0)    // remove empty lines
+      .join('\n');                        // put newlines back
+  }
+
   const getDeviceId = () => {
     let id = localStorage.getItem('diaryDeviceId');
     if (!id) {
@@ -26,6 +46,7 @@ function App() {
   const DEVICE_ID = getDeviceId();
 
   const loadPosts = async () => {
+    console.log('loadPosts called — refreshing list');
     try {
       const response = await fetch(`${API_BASE}/api/entries?device_id=${DEVICE_ID}`);
       if (!response.ok) throw new Error('API down');
@@ -45,9 +66,14 @@ function App() {
           no: entry.id.toString().padStart(8, '0'),
           sub: entry.sub,  // or leave '' if you want no subject
           comment: entry.greentext
-            .replace(/\n/g, '<br>')
-            .replace(/^>/gm, '<span class="greentext">&gt;')
-            .replace(/<br><span class="greentext">/g, '<br><span class="greentext">') + '</span>'
+              .split('\n')
+              .map(line => {
+              if (line.startsWith('>')) {
+                return `<span class="greentext">${line.replace(/^>/, '&gt;')}</span>`;
+              }
+              return line;
+            })
+            .join('<br>')
         },
         replies: []
       }));
@@ -64,7 +90,8 @@ function App() {
     e.preventDefault();
 
     const formData = new FormData(e.target);
-    const comment = formData.get('com')?.trim();
+    const rawComment = formData.get('com')?.trim();
+    const comment = sanitizeInput(rawComment)
     const options = formData.get('options')?.trim();
     console.log(options)
 
@@ -108,7 +135,7 @@ function App() {
 
       const postedName = formData.get('name')?.trim() || 'Anonymous';
       localStorage.setItem('diaryName', postedName);
-      const postedSubject = formData.get("subject")?.trim() || "";
+      const postedSubject = formData.get("sub")?.trim() || "";
       localStorage.setItem("savedSubject", postedSubject)
 
     } catch (err) {
