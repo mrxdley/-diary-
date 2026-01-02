@@ -3,6 +3,9 @@
 48  hour vibecode project  
 turns journal entries into greentexts 
 
+accessible on `https://tales-of-anon-production.up.railway.app/`
+if i feel like keeping it up
+
 ## Installation
 
 just node and npm
